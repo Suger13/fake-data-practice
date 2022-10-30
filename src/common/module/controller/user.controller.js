@@ -6,23 +6,30 @@ const { db } = require('../../../utils/db.js');
 
 const userController = {
     async register(req, res) {
-        const user = {
-            username : req.body.username,
-            password : req.body.password,
-            first_name : req.body.firstname,
-            last_name : req.body.lastname
+        try{
+            const user = {
+                username : req.body.username,
+                password : req.body.password,
+                first_name : req.body.firstname,
+                last_name : req.body.lastname
+            }
+    
+            const salt = await bcrypt.genSalt(10)
+            user.password = await bcrypt.hash(user.password, salt)
+    
+            const result = await db.collection("users").insertOne(user)
+    
+            console.log(await db.collection("users").findOne(result.insertedId))
+    
+            res.status(201).json({
+                msg : "user has been created!"
+            })
+        }catch(err){
+            console.log(err)
+            res.status(400).json({
+                msg : "invalid input"
+            })
         }
-
-        const salt = await bcrypt.genSalt(10)
-        user.password = await bcrypt.hash(user.password, salt)
-
-        const result = await db.collection("users").insertOne(user)
-
-        console.log(await db.collection("users").findOne(result.insertedId))
-
-        res.status(201).json({
-            msg : "user has been created!"
-        })
 
     },
     async getUser(req, res) {
@@ -34,7 +41,10 @@ const userController = {
             })
 
         }catch(err){
-            console.log("err woyyy")
+            console.err(err)
+            res.status(400).json({
+                msg : "invalid input"
+            })
         }
     },
 
@@ -49,20 +59,40 @@ const userController = {
     },
     async updateUser(req, res) {
         try{
-            const updateUser = await db.collection("users").updateOne({"_id" : ObjectID(req.params.id)}, {
+
+            const before = await db.collection("users").findOne({
+                _id : ObjectID(req.params.id)
+            })
+
+
+            await db.collection("users").updateOne({"_id" : ObjectID(req.params.id)}, {
                 $set : {
-                    first_name : req.body.firstname,
-                    last_name : req.body.lastname
+                    first_name : req.body.firstName,
+                    last_name : req.body.lastName
                 }
             })
 
+            const after = await db.collection("users").findOne({
+                _id : ObjectID(req.params.id)
+            })
+            
+
+            after.first_name && after.last_name ? res.status(200).json({ msg : "user has been updated!" }) : await db.collection("users").updateOne(
+                {"_id" : ObjectID(req.params.id)},
+                { $set : {
+                    first_name : before.first_name,
+                    last_name : before.last_name
+                }}
+            ).then(res.json({ msg : "invalid obj.key"}))
+            
+
         }catch(err){
             console.log(err)
+            res.status(400).json({
+                msg : "invalid input"
+            })
         }
 
-        res.status(200).json({
-            msg : "user has been updated!"
-        })
     },
     async deleteUser(req, res) {
         const result = await db.collection("users").deleteOne({
